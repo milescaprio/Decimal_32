@@ -42,8 +42,8 @@ Decimal_32::Decimal_32(const Decimal_32& d) {
 
 void Decimal_32::display(void) const {
 	auto digitscache = digits();
-	int dplocation = (int)mantissa_ - 158 + digitscache; //maybe mistake? was originally -digitscache
-	int dpiterlocation = DIGITS_ + dplocation - digitscache; //maybe mistake ? was originally no digitscache
+	int dplocation = (int)mantissa_ - 158 + digitscache; 
+	int dpiterlocation = DIGITS_ + dplocation - digitscache; 
 	if (isSigned()) {
 		std::cout << '-';
 	}
@@ -97,27 +97,21 @@ Decimal_32& Decimal_32::operator|(Decimal_32& b) {
 	Decimal_32& addee = adderbool ? b : *this;
 	int mantissaDifference = diff(/*a.*/mantissa_, b.mantissa_);
 	//offset the adder
-	int addeeOffset = min(mantissaDifference, (!adderbool) ? spacea : spaceb); //replaced max with min because it should be whichever fits not whichever doesn't. Then any rolled over digits are deleted
-	for (int i = 0; i < addee.DIGITS_ - addeeOffset; i++) {
-		/*addee.fraction_[i / 2] = i % 2 ?
-			((addee.fraction_[(i + addeeOffset) / 2] & B00001111) | (addee.fraction_[i / 2] & B11110000)) : //TO DO Substitute into wtf()
-			((addee.fraction_[(i + addeeOffset) / 2] & B11110000) | (addee.fraction_[i / 2] & B00001111));*/
+	int addeeOffset = min(mantissaDifference, (!adderbool) ? spacea : spaceb);
+	for (int i = 0; i < addee.DIGITS_ - addeeOffset; i++) { //goes through and shifts
 		addee.wtf(i, addee.rff(i + addeeOffset));
 	}
-	for (int i = addee.DIGITS_ - addeeOffset; i < addee.DIGITS_; i++) {
-		addee.wtf(i, 0); // flushes after data
+	for (int i = addee.DIGITS_ - addeeOffset; i < addee.DIGITS_; i++) { // flushes after data
+		addee.wtf(i, 0); 
 	}
 	addee.mantissa_ -= addeeOffset; //TO DO consider max/min mantissi
 	int adderOffset = mantissaDifference - addeeOffset;
 	if (adderOffset) {
-		for (int i = adder.DIGITS_ - 1; i >= adderOffset; i--) { //could be wrong? was originally i <=,i--
-		/*adder.fraction_[i / 2] = i % 2 ?
-			((adder.fraction_[(i - adderOffset) / 2] & B00001111) | (adder.fraction_[i / 2] & B11110000)) : //TO DO Substitute into wtf()
-			((adder.fraction_[(i - adderOffset) / 2] & B11110000) | (adder.fraction_[i / 2] & B00001111));*/
+		for (int i = adder.DIGITS_ - 1; i >= adderOffset; i--) { //goes through and shifts
 			adder.wtf(i, adder.rff(i - adderOffset));
 		}
-		for (int i = adderOffset - 1; i >= 0; i--) {
-			adder.wtf(i, 0); // flushes after data
+		for (int i = adderOffset - 1; i >= 0; i--) { // flushes after data
+			adder.wtf(i, 0); 
 		}
 	}
 	adder.mantissa_ += adderOffset; //TO DO consider max/min mantissi

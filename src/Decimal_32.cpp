@@ -127,11 +127,15 @@ Decimal_32 operator+(Decimal_32 a, Decimal_32 b) {
 	Decimal_32 c;
 	utiny carry = 0;
 
-	a | b;
+	a | b; // TO DO: use the output of the space search to quit adding to save time
+	c.mantissa_ = a.mantissa_;
 
-	for (int i = c.DIGITS_ - 1; i >= 1/*because sign*/; i--) {
-		utiny a_currentDigit = i % 2 ? a.fraction_[i / 2] & B00001111 : (a.fraction_[i / 2]) >> 4;
+	for (int i = c.DIGITS_ - 1; i >= 0; i--) {
+		/*utiny a_currentDigit = i % 2 ? a.fraction_[i / 2] & B00001111 : (a.fraction_[i / 2]) >> 4;
 		utiny b_currentDigit = i % 2 ? b.fraction_[i / 2] & B00001111 : (b.fraction_[i / 2]) >> 4;
+		utiny c_currentDigit = a_currentDigit + b_currentDigit + carry; // old code*/
+		utiny a_currentDigit = a.rff(i);
+		utiny b_currentDigit = b.rff(i);
 		utiny c_currentDigit = a_currentDigit + b_currentDigit + carry;
 		if (c_currentDigit > 9/*Max number in decimal*/) {
 			carry = 1;
@@ -140,14 +144,20 @@ Decimal_32 operator+(Decimal_32 a, Decimal_32 b) {
 		else {
 			carry = 0; //clear carried number
 		}
+		c.wtf(i, c_currentDigit); 
 	}
 	if (carry == 1) { //this means the number is too high for the current mantissa, need to scootch everything over
-		for (int i = Decimal_32::DIGITBYTES_ - 1; i >= 1; i--) {
+		/*for (int i = Decimal_32::DIGITBYTES_ - 1; i >= 1; i--) {
 			c.fraction_[i] = c.fraction_[i] >> 4 | (c.fraction_[i - 1] << 4);
 		}
-		c.fraction_[0] = (c.fraction_[0] & B11110000) | B00000001 /*adds in rolled over 1*/;
-		if (c.mantissa_ < 255) c.mantissa_++;
+		c.fraction_[0] = (c.fraction_[0] & B11110000) | B00000001; /*adds in rolled over 1*/
+		for (int i = c.DIGITS_ - 1; i >= 0 + 1/*because it is scootching it shouldn't go past 1*/; i--) {
+			c.wtf(i, c.rff(i - 1));
+		}
+		c.wtf(0, 1);
+		if (c.mantissa_ < 255) c.mantissa_++; //TO DO how should it handle if the mantissa is already maxed
 	}
+	return c;
 }
 
 Decimal_32 operator-(Decimal_32 a, Decimal_32 b) {

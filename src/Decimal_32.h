@@ -40,6 +40,8 @@ private:
 	utiny rff(int dig_i) const {
 		return readFromFraction_(dig_i);
 	}
+	void pos_add(Decimal_32 a, Decimal_32 b); //unsafely adds to numbers assuming they aren't signed and the mantissi are already equal, then sets object to it
+	void pos_subtract(Decimal_32 a, Decimal_32 b); //this also assumes that a is bigger than b
 public:
 	static const int DIGITS_ = 61; //Max digits that Decimal_32 can store. Just good to own this constant if need to change later
 	static const int DIGITBYTES_ = 31;
@@ -66,10 +68,18 @@ public:
 		}
 		return DIGITS_ - space;
 	}
+	void negate() {
+		fraction_[0] = (!(fraction_[0] >> 4) << 4) | fraction_[0] & B00001111;
+	}
 	Decimal_32 abs(void) const;
 	//Decimal_32 operator*(Decimal_32 b) const;
-	friend Decimal_32 operator+(Decimal_32 a, Decimal_32 b);
+	friend Decimal_32 operator+(Decimal_32 a, Decimal_32 b); //TO DO: look into changing these to pass by reference and profile/benchmark; also pos_ privates, and other operators
 	friend Decimal_32 operator-(Decimal_32 a, Decimal_32 b);
+	friend bool operator<(Decimal_32 a, Decimal_32 b);
+	friend bool operator>(Decimal_32 a, Decimal_32 b);
+	//friend bool operator==(Decimal_32 a, Decimal_32 b);
+	//friend bool operator<=(Decimal_32 a, Decimal_32 b);
+	//friend bool operator>=(Decimal_32 a, Decimal_32 b);
 	//Decimal_32 operator/(Decimal_32 b) const;
 	Decimal_32& operator|(Decimal_32& b); //This operator just converts the two numbers to have equal mantissas //still returns a decimal_32& in case someone wants to inline it i guess
 	Decimal_32 operator-() const;

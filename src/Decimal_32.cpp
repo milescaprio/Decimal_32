@@ -275,11 +275,11 @@ bool operator<(Decimal_32 a, Decimal_32 b) { //>, >=, <= are missing comments bu
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - mantissadiff; i < smallerexp.DIGITS_; i++) {
-		if (biggerexp.rff(i) != 0) {
+		if (smallerexp.rff(i) != 0) { //was biggerexp, which was a bug?
 			return !correct; //smallerexp is bigger, has trailing numbers that biggerexp doesn't have
 		}
 	}
-	return !correct;
+	return false; //isn't related to which is which, they're equal so neither. Could also write return correct because in case it gets here it's equal
 }
 
 bool operator>(Decimal_32 a, Decimal_32 b) { //see comments on operator<.
@@ -293,17 +293,17 @@ bool operator>(Decimal_32 a, Decimal_32 b) { //see comments on operator<.
 			return correct;
 		}
 	}
-	for (int i = 0; i < smallerexp.DIGITS_ - mantissadiff; i++) { //check along the aligned digits
+	for (int i = 0; i < smallerexp.DIGITS_ - mantissadiff; i++) {
 		if (biggerexp.rff(i + mantissadiff) > smallerexp.rff(i)) { //this is still the same but I just swapped around the expression because we are using the > operator in this function and this emphasizes it.
 			return correct;
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - mantissadiff; i < smallerexp.DIGITS_; i++) {
-		if (biggerexp.rff(i) != 0) {
+		if (smallerexp.rff(i) != 0) {
 			return !correct;
 		}
 	}
-	return !correct;
+	return false;
 }
 
 Decimal_32 Decimal_32::/*Is not a friend function, stays in scope*/operator-() const {

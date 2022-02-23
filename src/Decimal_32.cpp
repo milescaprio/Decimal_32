@@ -270,8 +270,10 @@ bool operator<(Decimal_32 a, Decimal_32 b) { //>, >=, <= are missing comments bu
 		}
 	}
 	for (int i = 0; i < smallerexp.DIGITS_ - mantissadiff; i++) { //check along the aligned digits
-		if (smallerexp.rff(i) < biggerexp.rff(i + mantissadiff)) {
-			return correct; //an aligned digit is smaller
+		int smallerexpdig = smallerexp.rff(i); //TO DO consider profiling just making it inline?
+		int biggerexpdig = biggerexp.rff(i + mantissadiff);
+		if (smallerexpdig != biggerexpdig) {
+			return (smallerexpdig < biggerexpdig) ==/*IFF operator*/ correct; //an aligned digit is different. figure out which number is bigger.
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - mantissadiff; i < smallerexp.DIGITS_; i++) {
@@ -294,8 +296,10 @@ bool operator>(Decimal_32 a, Decimal_32 b) { //see comments on operator<.
 		}
 	}
 	for (int i = 0; i < smallerexp.DIGITS_ - mantissadiff; i++) {
-		if (biggerexp.rff(i + mantissadiff) > smallerexp.rff(i)) { //this is still the same but I just swapped around the expression because we are using the > operator in this function and this emphasizes it.
-			return correct;
+		int smallerexpdig = smallerexp.rff(i); //TO DO consider profiling just making it inline?
+		int biggerexpdig = biggerexp.rff(i + mantissadiff);
+		if (smallerexpdig != biggerexpdig) {
+			return (biggerexpdig > smallerexpdig) ==/*IFF operator*/ correct; //this is still the same but I just swapped around the expression because we are using the > operator in this function and this emphasizes it.
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - mantissadiff; i < smallerexp.DIGITS_; i++) {

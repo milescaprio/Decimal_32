@@ -5,8 +5,8 @@ void Decimal_32::pos_add(Decimal_32 a, Decimal_32 b){
 	utiny carry = 0;
 
 	for (int i = DIGITS_ - 1; i >= 0; i--) {
-		utiny a_currentDigit = a.rff(i);
-		utiny b_currentDigit = b.rff(i);
+		utiny a_currentDigit = a.rfm(i);
+		utiny b_currentDigit = b.rfm(i);
 		utiny c_currentDigit = a_currentDigit + b_currentDigit + carry;
 		if (c_currentDigit > 9/*Max number in decimal*/) {
 			carry = 1;
@@ -15,13 +15,13 @@ void Decimal_32::pos_add(Decimal_32 a, Decimal_32 b){
 		else {
 			carry = 0; //clear carried number
 		}
-		wtf(i, c_currentDigit);
+		wtm(i, c_currentDigit);
 	}
 	if (carry == 1) { //this means the number is too high for the current exponent, need to scootch everything over
 		for (int i = DIGITS_ - 1; i >= 0 + 1/*because it is scootching it shouldn't go past 1*/; i--) {
-			wtf(i, rff(i - 1));
+			wtm(i, rfm(i - 1));
 		}
-		wtf(0, 1);
+		wtm(0, 1);
 		if (exponent_ < 255) exponent_++; //TO DO how should it handle if the exponent is already maxed
 	}
 }
@@ -34,8 +34,8 @@ void Decimal_32::pos_subtract(Decimal_32 a, Decimal_32 b) {
 		return;
 	}
 	for (int i = DIGITS_ - 1; i >= 0; i--) {
-		utiny a_currentDigit = a.rff(i);
-		utiny b_currentDigit = b.rff(i);
+		utiny a_currentDigit = a.rfm(i);
+		utiny b_currentDigit = b.rfm(i);
 		utiny c_currentDigit = a_currentDigit - b_currentDigit - borrow;
 		if (c_currentDigit < 0/*underflow for subtracting, have to borrow*/) {
 			borrow = 1;
@@ -44,7 +44,7 @@ void Decimal_32::pos_subtract(Decimal_32 a, Decimal_32 b) {
 		else {
 			borrow = 0; //clear carried number
 		}
-		wtf(i, c_currentDigit);
+		wtm(i, c_currentDigit);
 	}
 }
 
@@ -72,10 +72,10 @@ Decimal_32::Decimal_32(double d, int digits) {
 Decimal_32::Decimal_32(std::initializer_list<utiny> mantissa, utiny exponent, bool signd) {
 	exponent_ = exponent;
 	for (int i = 0; i < mantissa.size(); i++) {
-		wtf(i + DIGITS_ - mantissa.size(), mantissa.begin()[i]);
+		wtm(i + DIGITS_ - mantissa.size(), mantissa.begin()[i]);
 	}
 	if ((DIGITS_ - mantissa.size() - 1) % 2) {
-		wtf(DIGITS_ - mantissa.size() - 1, 0);
+		wtm(DIGITS_ - mantissa.size() - 1, 0);
 	}
 	for (int i = (DIGITS_ - mantissa.size() + 1/*Offset for sign*/ - 1/*it's an index*/ - 1/*We go one back*/) / 2; i >= 0; i--) {
 		mantissa_[i] = B00000000;
@@ -103,7 +103,7 @@ void Decimal_32::display(void) const {
 			std::cout << '0';
 		}
 		for (int i = DIGITS_ - digitscache; i < DIGITS_; i++) {
-			std::cout << (int)rff(i);
+			std::cout << (int)rfm(i);
 		}
 	}
 	else {
@@ -111,7 +111,7 @@ void Decimal_32::display(void) const {
 			if (dpiterlocation == i) {
 				std::cout << '.';
 			}
-			std::cout << (int)rff(i);
+			std::cout << (int)rfm(i);
 		}
 	}
 }
@@ -127,7 +127,7 @@ void Decimal_32::operator|(Decimal_32& b) {
 	int spacea = 0;
 	int spaceb = 0;
 	for (int i = 0; i < /*a.*/DIGITS_; i++) {
-		if (!rff(i)) {
+		if (!rfm(i)) {
 			spacea++;
 		}
 		else {
@@ -135,7 +135,7 @@ void Decimal_32::operator|(Decimal_32& b) {
 		}
 	}
 	for (int i = 0; i < b.DIGITS_/*Using B here because b is used in the rest of the function*/; i++) {
-		if (!rff(i)) {
+		if (!rfm(i)) {
 			spaceb++;
 		}
 		else {
@@ -149,19 +149,19 @@ void Decimal_32::operator|(Decimal_32& b) {
 	//offset the adder
 	int addeeOffset = min(exponentDifference, (!adderbool) ? spacea : spaceb);
 	for (int i = 0; i < addee.DIGITS_ - addeeOffset; i++) { //goes through and shifts
-		addee.wtf(i, addee.rff(i + addeeOffset));
+		addee.wtm(i, addee.rfm(i + addeeOffset));
 	}
 	for (int i = addee.DIGITS_ - addeeOffset; i < addee.DIGITS_; i++) { // flushes after data
-		addee.wtf(i, 0); 
+		addee.wtm(i, 0); 
 	}
 	addee.exponent_ -= addeeOffset; //TO DO consider max/min exponents
 	int adderOffset = exponentDifference - addeeOffset;
 	if (adderOffset) {
 		for (int i = adder.DIGITS_ - 1; i >= adderOffset; i--) { //goes through and shifts
-			adder.wtf(i, adder.rff(i - adderOffset));
+			adder.wtm(i, adder.rfm(i - adderOffset));
 		}
 		for (int i = adderOffset - 1; i >= 0; i--) { // flushes after data
-			adder.wtf(i, 0); 
+			adder.wtm(i, 0); 
 		}
 	}
 	adder.exponent_ += adderOffset; //TO DO consider max/min exponents
@@ -171,7 +171,7 @@ void Decimal_32::lshift() {
 	int space = lspace();
 	if (!space) return;
 	for (int i = space; i < DIGITS_; i++) {
-		wtf(i - space, rff(i));
+		wtm(i - space, rfm(i));
 	}
 	exponent_ -= space; // TO DO consider what to do when mantissa goes out of range, also rshift
 }
@@ -180,7 +180,7 @@ void Decimal_32::rshift() {
 	int space = rspace();
 	if (!space) return;
 	for (int i = DIGITS_ - 1; i >= space; i--) {
-		wtf(i, rff(i) - space);
+		wtm(i, rfm(i) - space);
 	}
 	exponent_ += space;
 }
@@ -188,7 +188,7 @@ void Decimal_32::rshift() {
 void Decimal_32::lshift(utiny shift) {
 	if (!shift) return;
 	for (int i = shift; i < DIGITS_; i++) {
-		wtf(i - shift, rff(i));
+		wtm(i - shift, rfm(i));
 	}
 	exponent_ -= shift; // TO DO consider what to do when mantissa goes out of range, also rshift
 }
@@ -196,7 +196,7 @@ void Decimal_32::lshift(utiny shift) {
 void Decimal_32::rshift(utiny shift) {
 	if (!shift) return;
 	for (int i = DIGITS_ - 1; i >= shift; i--) {
-		wtf(i, rff(i) - shift);
+		wtm(i, rfm(i) - shift);
 	}
 	exponent_ += shift;
 }
@@ -204,7 +204,7 @@ void Decimal_32::rshift(utiny shift) {
 utiny Decimal_32::lspace() {
 	int space = 0;
 	for (int i = 0; i < /*a.*/DIGITS_; i++) {
-		if (!rff(i)) {
+		if (!rfm(i)) {
 			space++;
 		}
 		else {
@@ -217,7 +217,7 @@ utiny Decimal_32::lspace() {
 utiny Decimal_32::rspace() {
 	int space = 0;
 	for (int i = DIGITS_ - 1; i >= 0; i--) {
-		if (!rff(i)) {
+		if (!rfm(i)) {
 			space++;
 		}
 		else {
@@ -250,8 +250,8 @@ Decimal_32 operator+(Decimal_32 a, Decimal_32 b) {
 
 	utiny carry = 0;
 	for (int i = c.DIGITS_ - 1; i >= 0; i--) {
-		utiny a_currentDigit = a.rff(i);
-		utiny b_currentDigit = b.rff(i);
+		utiny a_currentDigit = a.rfm(i);
+		utiny b_currentDigit = b.rfm(i);
 		utiny c_currentDigit = a_currentDigit + b_currentDigit + carry;
 		if (c_currentDigit > 9/*Max number in decimal*/) {
 			carry = 1;
@@ -260,13 +260,13 @@ Decimal_32 operator+(Decimal_32 a, Decimal_32 b) {
 		else {
 			carry = 0; //clear carried number
 		}
-		c.wtf(i, c_currentDigit); 
+		c.wtm(i, c_currentDigit); 
 	}
 	if (carry == 1) { //this means the number is too high for the current exponent, need to scootch everything over
 		for (int i = c.DIGITS_ - 1; i >= 0 + 1/*because it is scootching it shouldn't go past 1*/; i--) {
-			c.wtf(i, c.rff(i - 1));
+			c.wtm(i, c.rfm(i - 1));
 		}
-		c.wtf(0, 1);
+		c.wtm(0, 1);
 		if (c.exponent_ < 255) c.exponent_++; //TO DO how should it handle if the exponent is already maxed
 	}
 	return c;
@@ -297,8 +297,8 @@ Decimal_32 operator-(Decimal_32 a, Decimal_32 b) {
 	utiny borrow = 0;
 
 	for (int i = c.DIGITS_ - 1; i >= 0; i--) {
-		utiny a_currentDigit = a.rff(i);
-		utiny b_currentDigit = b.rff(i);
+		utiny a_currentDigit = a.rfm(i);
+		utiny b_currentDigit = b.rfm(i);
 		utiny c_currentDigit = a_currentDigit - b_currentDigit - borrow;
 		if (c_currentDigit < 0/*underflow for subtracting, have to borrow*/) {
 			borrow = 1;
@@ -307,7 +307,7 @@ Decimal_32 operator-(Decimal_32 a, Decimal_32 b) {
 		else {
 			borrow = 0; //clear carried number
 		}
-		c.wtf(i, c_currentDigit);
+		c.wtm(i, c_currentDigit);
 	}
 	//cannot be left with leftover borrow, or it would mean the b was bigger than be, contradicting the original statement
 	return c;
@@ -323,22 +323,28 @@ Decimal_32 operator*(Decimal_32 a, Decimal_32 b)
 	bool aisbigger = a.exponent_ > b.exponent_;
 	Decimal_32& biggerexp = aisbigger ? a : b;
 	Decimal_32& smallerexp = aisbigger ? b : a;
-	utiny bilspace = aisbigger ? alspace : blspace; // bi l space (bigger left space)
+	utiny bilspace = aisbigger ? alspace : blspace;
 	utiny smlspace = aisbigger ? blspace : alspace;
-	utiny spacediff = diff(bilspace,smlspace); //we cant use biggerexp and smallerexp to decide diff because this is based on space not exponent
+	utiny bildigs = biggerexp.DIGITS_ - bilspace; // bi l digits (bigger left digits)
+	utiny smldigs = smallerexp.DIGITS_ - smlspace;
+	utiny spacediff = diff(bildigs,smldigs); //we cant use biggerexp and smallerexp to decide diff because this is based on space not exponent
 	utiny expdiff = biggerexp.exponent_ - smallerexp.exponent_; //dont use diff macro because we have saved comparison
 	//c.exponent_ = a.exponent_ + b.exponent_;
-	int outputdigcount = ((biggerexp.DIGITS_ - bilspace) + (smallerexp.DIGITS_ - smlspace)); //gotta account for possible different exponents
-	for (int i = bilspace; i < biggerexp.DIGITS_; i++) {
-		utiny currentbiggerexpdig = biggerexp.rff(i); //TO DO profile here also  
-		utiny currentsmallerexpdig = smallerexp.rff(i - spacediff);
-		if (currentbiggerexpdig * currentsmallerexpdig != 9) {
-			if (currentbiggerexpdig * currentsmallerexpdig < 9) {
-				outputdigcount--;
-			}
-			break;
+	int outputdigcount = ((bildigs) + (smldigs)); //gotta account for possible different exponents
+	//TO DO consider way to more accurately figure out if we're going to have the extra digit? 
+	utiny cut = c.DIGITS_ < outputdigcount ? outputdigcount - c.DIGITS_: 0;
+	utiny carry = 0;
+	for (int i = biggerexp.DIGITS_ - 1; i >= bilspace; i--) {
+		for (int j = smallerexp.DIGITS_ - 1; j >= smlspace; j--) {
+			carry = c.atm(i - biggerexp.DIGITS_ + 1 + j, biggerexp.rfm(i) * smallerexp.rfm(j) + carry); //TO DO consider using wtm on first iteration?
+		}
+		if (carry) {
+			c.wtm(i - biggerexp.DIGITS_ /*+ 1 - 1*/ - smlspace, carry); //we can guarantee to wtm, not atm because we should be adding to new ground.
+			carry = 0;
 		}
 	}
+
+
 	std::cout << outputdigcount << '\n';
 	return c;
 	if (outputdigcount > c.DIGITS_) {
@@ -358,19 +364,19 @@ bool operator<(Decimal_32 a, Decimal_32 b) { //>, >=, <= are missing comments bu
 	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
 	//the iterators do NOT LINE UP in the following loops; they couldn't without weirdness. The first is j for biggerexp, then the next two are i's for smallerexp.
 	for (int j = 0; j < exponentdiff; j++) {
-		if (biggerexp.rff(j) != 0) {
+		if (biggerexp.rfm(j) != 0) {
 			return correct; //biggerexp is bigger, has leading numbers that smallerexp doesn't have
 		}
 	}
 	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) { //check along the aligned digits
-		int smallerexpdig = smallerexp.rff(i); //TO DO consider profiling just making it inline?, also profiling ? < : > method, also use result on *
-		int biggerexpdig = biggerexp.rff(i + exponentdiff);
+		int smallerexpdig = smallerexp.rfm(i); //TO DO consider profiling just making it inline?, also profiling ? < : > method, also use result on *
+		int biggerexpdig = biggerexp.rfm(i + exponentdiff);
 		if (smallerexpdig != biggerexpdig) {
 			return (smallerexpdig < biggerexpdig) ==/*IFF operator*/ correct; //an aligned digit is different. figure out which number is bigger.
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
-		if (smallerexp.rff(i) != 0) { //was biggerexp, which was a bug? //TO DO consider making function that indexes faster by taking whole byte
+		if (smallerexp.rfm(i) != 0) { //was biggerexp, which was a bug? //TO DO consider making function that indexes faster by taking whole byte
 			return !correct; //smallerexp is bigger, has trailing numbers that biggerexp doesn't have
 		}
 	}
@@ -384,19 +390,19 @@ bool operator>(Decimal_32 a, Decimal_32 b) { //see comments on operator<.
 
 	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
 	for (int j = 0; j < exponentdiff; j++) {
-		if (biggerexp.rff(j) != 0) {
+		if (biggerexp.rfm(j) != 0) {
 			return correct;
 		}
 	}
 	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
-		int smallerexpdig = smallerexp.rff(i);
-		int biggerexpdig = biggerexp.rff(i + exponentdiff);
+		int smallerexpdig = smallerexp.rfm(i);
+		int biggerexpdig = biggerexp.rfm(i + exponentdiff);
 		if (smallerexpdig != biggerexpdig) {
 			return (biggerexpdig > smallerexpdig) ==/*IFF operator*/ correct; //this is still the same but I just swapped around the expression because we are using the > operator in this function and this emphasizes it.
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
-		if (smallerexp.rff(i) != 0) {
+		if (smallerexp.rfm(i) != 0) {
 			return !correct;
 		}
 	}
@@ -409,17 +415,17 @@ bool operator==(Decimal_32 a, Decimal_32 b) {
 
 	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
 	for (int j = 0; j < exponentdiff; j++) {
-		if (biggerexp.rff(j) != 0) {
+		if (biggerexp.rfm(j) != 0) {
 			return false; //exclusive leading digits should not be anything besides 0
 		}
 	}
 	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
-		if (smallerexp.rff(i) != biggerexp.rff(i + exponentdiff)) {
+		if (smallerexp.rfm(i) != biggerexp.rfm(i + exponentdiff)) {
 			return false; //aligned digits have to be equal
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
-		if (smallerexp.rff(i) != 0) {
+		if (smallerexp.rfm(i) != 0) {
 			return false; // exclusive trailing digits should not be anything besides 0
 		}
 	}
@@ -432,17 +438,17 @@ bool operator!=(Decimal_32 a, Decimal_32 b) {
 
 	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
 	for (int j = 0; j < exponentdiff; j++) {
-		if (biggerexp.rff(j) != 0) {
+		if (biggerexp.rfm(j) != 0) {
 			return true;
 		}
 	}
 	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
-		if (smallerexp.rff(i) != biggerexp.rff(i + exponentdiff)) {
+		if (smallerexp.rfm(i) != biggerexp.rfm(i + exponentdiff)) {
 			return true;
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
-		if (smallerexp.rff(i) != 0) {
+		if (smallerexp.rfm(i) != 0) {
 			return true;
 		}
 	}
@@ -456,19 +462,19 @@ bool operator<=(Decimal_32 a, Decimal_32 b) { //see comments on operator<.
 
 	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
 	for (int j = 0; j < exponentdiff; j++) {
-		if (biggerexp.rff(j) != 0) {
+		if (biggerexp.rfm(j) != 0) {
 			return correct;
 		}
 	}
 	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
-		int smallerexpdig = smallerexp.rff(i);
-		int biggerexpdig = biggerexp.rff(i + exponentdiff);
+		int smallerexpdig = smallerexp.rfm(i);
+		int biggerexpdig = biggerexp.rfm(i + exponentdiff);
 		if (smallerexpdig != biggerexpdig) {
 			return (smallerexpdig < biggerexpdig) ==/*IFF operator*/ correct;
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
-		if (smallerexp.rff(i) != 0) {
+		if (smallerexp.rfm(i) != 0) {
 			return !correct;
 		}
 	}
@@ -482,19 +488,19 @@ bool operator>=(Decimal_32 a, Decimal_32 b) { //see comments on operator<=.
 
 	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
 	for (int j = 0; j < exponentdiff; j++) {
-		if (biggerexp.rff(j) != 0) {
+		if (biggerexp.rfm(j) != 0) {
 			return correct;
 		}
 	}
 	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
-		int smallerexpdig = smallerexp.rff(i);
-		int biggerexpdig = biggerexp.rff(i + exponentdiff);
+		int smallerexpdig = smallerexp.rfm(i);
+		int biggerexpdig = biggerexp.rfm(i + exponentdiff);
 		if (smallerexpdig != biggerexpdig) {
 			return (biggerexpdig > smallerexpdig) == correct;
 		}
 	}
 	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
-		if (smallerexp.rff(i) != 0) {
+		if (smallerexp.rfm(i) != 0) {
 			return !correct;
 		}
 	}

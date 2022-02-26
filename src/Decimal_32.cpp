@@ -17,12 +17,12 @@ void Decimal_32::pos_add(Decimal_32 a, Decimal_32 b){
 		}
 		wtf(i, c_currentDigit);
 	}
-	if (carry == 1) { //this means the number is too high for the current mantissa, need to scootch everything over
+	if (carry == 1) { //this means the number is too high for the current exponent, need to scootch everything over
 		for (int i = DIGITS_ - 1; i >= 0 + 1/*because it is scootching it shouldn't go past 1*/; i--) {
 			wtf(i, rff(i - 1));
 		}
 		wtf(0, 1);
-		if (mantissa_ < 255) mantissa_++; //TO DO how should it handle if the mantissa is already maxed
+		if (exponent_ < 255) exponent_++; //TO DO how should it handle if the exponent is already maxed
 	}
 }
 
@@ -56,9 +56,9 @@ Decimal_32::~Decimal_32() {
 
 Decimal_32::Decimal_32() {
 	for (int i = 0; i < 31; i++) {
-		fraction_[i] = B00000000;
+		mantissa_[i] = B00000000;
 	}
-	mantissa_ = 158;
+	exponent_ = 158;
 }
 
 Decimal_32::Decimal_32(float d, int digits) {
@@ -69,30 +69,30 @@ Decimal_32::Decimal_32(double d, int digits) {
 	std::cout << "I will implement this function later\n";
 }
 
-Decimal_32::Decimal_32(std::initializer_list<utiny> fraction, utiny mantissa, bool signd) {
-	mantissa_ = mantissa;
-	for (int i = 0; i < fraction.size(); i++) {
-		wtf(i + DIGITS_ - fraction.size(), fraction.begin()[i]);
+Decimal_32::Decimal_32(std::initializer_list<utiny> mantissa, utiny exponent, bool signd) {
+	exponent_ = exponent;
+	for (int i = 0; i < mantissa.size(); i++) {
+		wtf(i + DIGITS_ - mantissa.size(), mantissa.begin()[i]);
 	}
-	if ((DIGITS_ - fraction.size() - 1) % 2) {
-		wtf(DIGITS_ - fraction.size() - 1, 0);
+	if ((DIGITS_ - mantissa.size() - 1) % 2) {
+		wtf(DIGITS_ - mantissa.size() - 1, 0);
 	}
-	for (int i = (DIGITS_ - fraction.size() + 1/*Offset for sign*/ - 1/*it's an index*/ - 1/*We go one back*/) / 2; i >= 0; i--) {
-		fraction_[i] = B00000000;
+	for (int i = (DIGITS_ - mantissa.size() + 1/*Offset for sign*/ - 1/*it's an index*/ - 1/*We go one back*/) / 2; i >= 0; i--) {
+		mantissa_[i] = B00000000;
 	}
-	fraction_[0] = signd ? B00010000 : B00000000;
+	mantissa_[0] = signd ? B00010000 : B00000000;
 }
 
 Decimal_32::Decimal_32(const Decimal_32& d) {
 	for (int i = 0; i < DIGITBYTES_; i++) {
-		fraction_[i] = d.fraction_[i]; //obv just copies bytes over
+		mantissa_[i] = d.mantissa_[i]; //obv just copies bytes over
 	}
-	mantissa_ = d.mantissa_;
+	exponent_ = d.exponent_;
 }
 
 void Decimal_32::display(void) const {
 	auto digitscache = digits();
-	int dplocation = (int)mantissa_ - 158 + digitscache; 
+	int dplocation = (int)exponent_ - 158 + digitscache; 
 	int dpiterlocation = DIGITS_ + dplocation - digitscache; 
 	if (isSigned()) {
 		std::cout << '-';
@@ -118,44 +118,44 @@ void Decimal_32::display(void) const {
 
 Decimal_32 Decimal_32::abs(void) const {
 	Decimal_32 ret = *this;
-	ret.fraction_[0] = B00001111 & ret.fraction_[0]; //clear leading sign half-byte
+	ret.mantissa_[0] = B00001111 & ret.mantissa_[0]; //clear leading sign half-byte
 	return ret;
 }
 
-Decimal_32& Decimal_32::operator|(Decimal_32& b) {
+void Decimal_32::operator|(Decimal_32& b) {
 	//Count avaiable shifting slots for both numbers
 	int spacea = 0;
 	int spaceb = 0;
-	for (int i = 1; i < /*a.*/DIGITS_; i++) {
-		if (!(i % 2 ? /*a.*/fraction_[i / 2] & B00001111 : (/*a.*/fraction_[i / 2]) >> 4)) {
+	for (int i = 0; i < /*a.*/DIGITS_; i++) {
+		if (!rff(i)) {
 			spacea++;
 		}
 		else {
 			break;
 		}
 	}
-	for (int i = 1; i < b.DIGITS_/*Using B here because b is used in the rest of the function*/; i++) {
-		if (!(i % 2 ? b.fraction_[i / 2] & B00001111 : (b.fraction_[i / 2]) >> 4)) {
+	for (int i = 0; i < b.DIGITS_/*Using B here because b is used in the rest of the function*/; i++) {
+		if (!rff(i)) {
 			spaceb++;
 		}
 		else {
 			break;
 		}
 	}
-	bool adderbool = ((int)/*a.*/mantissa_ - spacea < (int)b.mantissa_ - spaceb); //inverted because lesser should be the adder; then it will offset both and add
+	bool adderbool = ((int)/*a.*/exponent_ - spacea < (int)b.exponent_ - spaceb); //inverted because lesser should be the adder; then it will offset both and add
 	Decimal_32& adder = adderbool ? *this : b;
 	Decimal_32& addee = adderbool ? b : *this;
-	int mantissaDifference = diff(/*a.*/mantissa_, b.mantissa_);
+	int exponentDifference = diff(/*a.*/exponent_, b.exponent_);
 	//offset the adder
-	int addeeOffset = min(mantissaDifference, (!adderbool) ? spacea : spaceb);
+	int addeeOffset = min(exponentDifference, (!adderbool) ? spacea : spaceb);
 	for (int i = 0; i < addee.DIGITS_ - addeeOffset; i++) { //goes through and shifts
 		addee.wtf(i, addee.rff(i + addeeOffset));
 	}
 	for (int i = addee.DIGITS_ - addeeOffset; i < addee.DIGITS_; i++) { // flushes after data
 		addee.wtf(i, 0); 
 	}
-	addee.mantissa_ -= addeeOffset; //TO DO consider max/min mantissi
-	int adderOffset = mantissaDifference - addeeOffset;
+	addee.exponent_ -= addeeOffset; //TO DO consider max/min exponents
+	int adderOffset = exponentDifference - addeeOffset;
 	if (adderOffset) {
 		for (int i = adder.DIGITS_ - 1; i >= adderOffset; i--) { //goes through and shifts
 			adder.wtf(i, adder.rff(i - adderOffset));
@@ -164,17 +164,76 @@ Decimal_32& Decimal_32::operator|(Decimal_32& b) {
 			adder.wtf(i, 0); 
 		}
 	}
-	adder.mantissa_ += adderOffset; //TO DO consider max/min mantissi
-	return adder;
+	adder.exponent_ += adderOffset; //TO DO consider max/min exponents
+}
+
+void Decimal_32::lshift() {
+	int space = lspace();
+	if (!space) return;
+	for (int i = space; i < DIGITS_; i++) {
+		wtf(i - space, rff(i));
+	}
+	exponent_ -= space; // TO DO consider what to do when mantissa goes out of range, also rshift
+}
+
+void Decimal_32::rshift() {
+	int space = rspace();
+	if (!space) return;
+	for (int i = DIGITS_ - 1; i >= space; i--) {
+		wtf(i, rff(i) - space);
+	}
+	exponent_ += space;
+}
+
+void Decimal_32::lshift(utiny shift) {
+	if (!shift) return;
+	for (int i = shift; i < DIGITS_; i++) {
+		wtf(i - shift, rff(i));
+	}
+	exponent_ -= shift; // TO DO consider what to do when mantissa goes out of range, also rshift
+}
+
+void Decimal_32::rshift(utiny shift) {
+	if (!shift) return;
+	for (int i = DIGITS_ - 1; i >= shift; i--) {
+		wtf(i, rff(i) - shift);
+	}
+	exponent_ += shift;
+}
+
+utiny Decimal_32::lspace() {
+	int space = 0;
+	for (int i = 0; i < /*a.*/DIGITS_; i++) {
+		if (!rff(i)) {
+			space++;
+		}
+		else {
+			break;
+		}
+	}
+	return space;
+}
+
+utiny Decimal_32::rspace() {
+	int space = 0;
+	for (int i = DIGITS_ - 1; i >= 0; i--) {
+		if (!rff(i)) {
+			space++;
+		}
+		else {
+			break;
+		}
+	}
+	return space;
 }
 
 Decimal_32 operator+(Decimal_32 a, Decimal_32 b) {
 	Decimal_32 c;
 	a | b; // TO DO: use the output of the space search to quit adding to save time
-	c.mantissa_ = a.mantissa_;
+	c.exponent_ = a.exponent_;
 
-	bool signa = a.fraction_[0] >> 4;
-	bool signb = b.fraction_[0] >> 4;
+	bool signa = a.mantissa_[0] >> 4;
+	bool signb = b.mantissa_[0] >> 4;
 	if (!signa && signb) {
 		c.pos_subtract(a, b);
 		return c;
@@ -203,12 +262,12 @@ Decimal_32 operator+(Decimal_32 a, Decimal_32 b) {
 		}
 		c.wtf(i, c_currentDigit); 
 	}
-	if (carry == 1) { //this means the number is too high for the current mantissa, need to scootch everything over
+	if (carry == 1) { //this means the number is too high for the current exponent, need to scootch everything over
 		for (int i = c.DIGITS_ - 1; i >= 0 + 1/*because it is scootching it shouldn't go past 1*/; i--) {
 			c.wtf(i, c.rff(i - 1));
 		}
 		c.wtf(0, 1);
-		if (c.mantissa_ < 255) c.mantissa_++; //TO DO how should it handle if the mantissa is already maxed
+		if (c.exponent_ < 255) c.exponent_++; //TO DO how should it handle if the exponent is already maxed
 	}
 	return c;
 }
@@ -216,10 +275,10 @@ Decimal_32 operator+(Decimal_32 a, Decimal_32 b) {
 Decimal_32 operator-(Decimal_32 a, Decimal_32 b) {
 	Decimal_32 c;
 	a | b; // TO DO: use the output of the space search to quit adding to save time
-	c.mantissa_ = a.mantissa_;
+	c.exponent_ = a.exponent_;
 	
-	bool signa = a.fraction_[0] >> 4;
-	bool signb = b.fraction_[0] >> 4;
+	bool signa = a.mantissa_[0] >> 4;
+	bool signb = b.mantissa_[0] >> 4;
 	if (!signa && signb) {
 		c.pos_add(a, b);
 		return c;
@@ -254,30 +313,82 @@ Decimal_32 operator-(Decimal_32 a, Decimal_32 b) {
 	return c;
 }
 
+Decimal_32 operator*(Decimal_32 a, Decimal_32 b)
+{
+	Decimal_32 c;
+	a.rshift(); //TO DO figure out more optimal solution
+	b.rshift();
+	utiny alspace = a.lspace();
+	utiny blspace = b.lspace();
+	bool aisbigger = a.exponent_ > b.exponent_;
+	Decimal_32& biggerexp = aisbigger ? a : b;
+	Decimal_32& smallerexp = aisbigger ? b : a;
+	utiny bilspace = aisbigger ? alspace : blspace; // bi l space (bigger left space)
+	utiny smlspace = aisbigger ? blspace : alspace;
+	utiny spacediff = diff(bilspace,smlspace); //we cant use biggerexp and smallerexp to decide diff because this is based on space not exponent
+	utiny expdiff = biggerexp.exponent_ - smallerexp.exponent_; //dont use diff macro because we have saved comparison
+	//c.exponent_ = a.exponent_ + b.exponent_;
+	int outputdigcount = ((biggerexp.exponent_ + (biggerexp.DIGITS_ - bilspace)) - (smallerexp.exponent_)); //gotta account for possible different exponents
+	/*for (int i = alspace; i < a.DIGITS_; i++) {
+		utiny arffi = a.rff(i);
+		if (arffi != a.SQRT10_[i]) {
+			if (arffi > a.SQRT10_[i]) {
+				outputdigcount += 1;
+			}
+			break;
+		}
+	}
+	for (int i = blspace; i < b.DIGITS_; i++) {
+		utiny brffi = b.rff(i);
+		if (brffi != b.SQRT10_[i]) {
+			if (brffi > b.SQRT10_[i]) {
+				outputdigcount += 1;
+			}
+			break;
+		}
+	}*/ //this doesn't work at all it just checks if the numbers are both less than the sqrt of 10 and I don't think THAT even works
+	for (int i = bilspace; i < biggerexp.DIGITS_; i++) {
+		utiny currentbiggerexpdig = biggerexp.rff(i); //TO DO profile here also  
+		utiny currentsmallerexpdig = smallerexp.rff(i - spacediff);
+		if (currentbiggerexpdig * currentsmallerexpdig != 9) {
+			if (currentbiggerexpdig > currentsmallerexpdig) {
+				outputdigcount++;
+			}
+			break;
+		}
+	}
+	std::cout << outputdigcount << '\n';
+	return c;
+	if (outputdigcount > c.DIGITS_) {
+	//wait look up, still have it wrong
+	}
+}
+
+
 bool operator<(Decimal_32 a, Decimal_32 b) { //>, >=, <= are missing comments but they are just variations of these comments
 	//two odd lines of logic here, which are IFF'ed.
-	//we have smaller and bigger mantissas, and if they are in order (smaller, bigger) to (a,b), then this yields true, and other way is false.
-	//if the smaller mantissa is the smaller number, then this yields true, and the other way is false.
-	Decimal_32& biggerexp = a.mantissa_ < b.mantissa_ ? b : a;
-	Decimal_32& smallerexp = a.mantissa_ < b.mantissa_ ? a : b; //inverted logic not sign bc of edge cases like =
-	bool correct = a.mantissa_ < b.mantissa_;
+	//we have smaller and bigger exponents, and if they are in order (smaller, bigger) to (a,b), then this yields true, and other way is false.
+	//if the smaller exponent is the smaller number, then this yields true, and the other way is false.
+	Decimal_32& biggerexp = a.exponent_ < b.exponent_ ? b : a;
+	Decimal_32& smallerexp = a.exponent_ < b.exponent_ ? a : b; //inverted logic not sign bc of edge cases like =
+	bool correct = a.exponent_ < b.exponent_;
 
-	utiny mantissadiff = biggerexp.mantissa_ - smallerexp.mantissa_;
+	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
 	//the iterators do NOT LINE UP in the following loops; they couldn't without weirdness. The first is j for biggerexp, then the next two are i's for smallerexp.
-	for (int j = 0; j < mantissadiff; j++) {
+	for (int j = 0; j < exponentdiff; j++) {
 		if (biggerexp.rff(j) != 0) {
 			return correct; //biggerexp is bigger, has leading numbers that smallerexp doesn't have
 		}
 	}
-	for (int i = 0; i < smallerexp.DIGITS_ - mantissadiff; i++) { //check along the aligned digits
-		int smallerexpdig = smallerexp.rff(i); //TO DO consider profiling just making it inline?
-		int biggerexpdig = biggerexp.rff(i + mantissadiff);
+	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) { //check along the aligned digits
+		int smallerexpdig = smallerexp.rff(i); //TO DO consider profiling just making it inline?, also profiling ? < : > method, also use result on *
+		int biggerexpdig = biggerexp.rff(i + exponentdiff);
 		if (smallerexpdig != biggerexpdig) {
 			return (smallerexpdig < biggerexpdig) ==/*IFF operator*/ correct; //an aligned digit is different. figure out which number is bigger.
 		}
 	}
-	for (int i = smallerexp.DIGITS_ - mantissadiff; i < smallerexp.DIGITS_; i++) {
-		if (smallerexp.rff(i) != 0) { //was biggerexp, which was a bug?
+	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
+		if (smallerexp.rff(i) != 0) { //was biggerexp, which was a bug? //TO DO consider making function that indexes faster by taking whole byte
 			return !correct; //smallerexp is bigger, has trailing numbers that biggerexp doesn't have
 		}
 	}
@@ -285,24 +396,24 @@ bool operator<(Decimal_32 a, Decimal_32 b) { //>, >=, <= are missing comments bu
 }
 
 bool operator>(Decimal_32 a, Decimal_32 b) { //see comments on operator<.
-	Decimal_32& biggerexp = a.mantissa_ > b.mantissa_ ? a : b; //now doing everything in >. Note that edge cases will now swap whether being biggerexp or smaller, but that's intended.
-	Decimal_32& smallerexp = a.mantissa_ > b.mantissa_ ? b : a;
-	bool correct = a.mantissa_ > b.mantissa_; //SWAPPED THIS, THE NEW CORRECT ORDER. EVERYTHING ELSE CHECKS THE SAME; SMALLER SHOULD BE SMALLER, AND VICE VERSA, EXCEPT THE EDGE CASES ARE FLIPPED (see above).
+	Decimal_32& biggerexp = a.exponent_ > b.exponent_ ? a : b; //now doing everything in >. Note that edge cases will now swap whether being biggerexp or smaller, but that's intended.
+	Decimal_32& smallerexp = a.exponent_ > b.exponent_ ? b : a;
+	bool correct = a.exponent_ > b.exponent_; //SWAPPED THIS, THE NEW CORRECT ORDER. EVERYTHING ELSE CHECKS THE SAME; SMALLER SHOULD BE SMALLER, AND VICE VERSA, EXCEPT THE EDGE CASES ARE FLIPPED (see above).
 
-	utiny mantissadiff = biggerexp.mantissa_ - smallerexp.mantissa_;
-	for (int j = 0; j < mantissadiff; j++) {
+	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
+	for (int j = 0; j < exponentdiff; j++) {
 		if (biggerexp.rff(j) != 0) {
 			return correct;
 		}
 	}
-	for (int i = 0; i < smallerexp.DIGITS_ - mantissadiff; i++) {
-		int smallerexpdig = smallerexp.rff(i); //TO DO consider profiling just making it inline?
-		int biggerexpdig = biggerexp.rff(i + mantissadiff);
+	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
+		int smallerexpdig = smallerexp.rff(i);
+		int biggerexpdig = biggerexp.rff(i + exponentdiff);
 		if (smallerexpdig != biggerexpdig) {
 			return (biggerexpdig > smallerexpdig) ==/*IFF operator*/ correct; //this is still the same but I just swapped around the expression because we are using the > operator in this function and this emphasizes it.
 		}
 	}
-	for (int i = smallerexp.DIGITS_ - mantissadiff; i < smallerexp.DIGITS_; i++) {
+	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
 		if (smallerexp.rff(i) != 0) {
 			return !correct;
 		}
@@ -310,8 +421,106 @@ bool operator>(Decimal_32 a, Decimal_32 b) { //see comments on operator<.
 	return false;
 }
 
+bool operator==(Decimal_32 a, Decimal_32 b) {
+	Decimal_32& biggerexp = a.exponent_ > b.exponent_ ? a : b; 
+	Decimal_32& smallerexp = a.exponent_ > b.exponent_ ? b : a;
+
+	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
+	for (int j = 0; j < exponentdiff; j++) {
+		if (biggerexp.rff(j) != 0) {
+			return false; //exclusive leading digits should not be anything besides 0
+		}
+	}
+	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
+		if (smallerexp.rff(i) != biggerexp.rff(i + exponentdiff)) {
+			return false; //aligned digits have to be equal
+		}
+	}
+	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
+		if (smallerexp.rff(i) != 0) {
+			return false; // exclusive trailing digits should not be anything besides 0
+		}
+	}
+	return true;
+}
+
+bool operator!=(Decimal_32 a, Decimal_32 b) {
+	Decimal_32& biggerexp = a.exponent_ > b.exponent_ ? a : b; //see ==, returns opposite
+	Decimal_32& smallerexp = a.exponent_ > b.exponent_ ? b : a;
+
+	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
+	for (int j = 0; j < exponentdiff; j++) {
+		if (biggerexp.rff(j) != 0) {
+			return true;
+		}
+	}
+	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
+		if (smallerexp.rff(i) != biggerexp.rff(i + exponentdiff)) {
+			return true;
+		}
+	}
+	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
+		if (smallerexp.rff(i) != 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool operator<=(Decimal_32 a, Decimal_32 b) { //see comments on operator<.
+	Decimal_32& biggerexp = a.exponent_ < b.exponent_ ? b : a;
+	Decimal_32& smallerexp = a.exponent_ < b.exponent_ ? a : b;
+	bool correct = a.exponent_ < b.exponent_;
+
+	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
+	for (int j = 0; j < exponentdiff; j++) {
+		if (biggerexp.rff(j) != 0) {
+			return correct;
+		}
+	}
+	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
+		int smallerexpdig = smallerexp.rff(i);
+		int biggerexpdig = biggerexp.rff(i + exponentdiff);
+		if (smallerexpdig != biggerexpdig) {
+			return (smallerexpdig < biggerexpdig) ==/*IFF operator*/ correct;
+		}
+	}
+	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
+		if (smallerexp.rff(i) != 0) {
+			return !correct;
+		}
+	}
+	return true; //instead, we return true here, because <= should output true on equal.
+}
+
+bool operator>=(Decimal_32 a, Decimal_32 b) { //see comments on operator<=.
+	Decimal_32& biggerexp = a.exponent_ > b.exponent_ ? a : b;
+	Decimal_32& smallerexp = a.exponent_ > b.exponent_ ? b : a;
+	bool correct = a.exponent_ > b.exponent_;
+
+	utiny exponentdiff = biggerexp.exponent_ - smallerexp.exponent_;
+	for (int j = 0; j < exponentdiff; j++) {
+		if (biggerexp.rff(j) != 0) {
+			return correct;
+		}
+	}
+	for (int i = 0; i < smallerexp.DIGITS_ - exponentdiff; i++) {
+		int smallerexpdig = smallerexp.rff(i);
+		int biggerexpdig = biggerexp.rff(i + exponentdiff);
+		if (smallerexpdig != biggerexpdig) {
+			return (biggerexpdig > smallerexpdig) == correct;
+		}
+	}
+	for (int i = smallerexp.DIGITS_ - exponentdiff; i < smallerexp.DIGITS_; i++) {
+		if (smallerexp.rff(i) != 0) {
+			return !correct;
+		}
+	}
+	return true;
+}
+
 Decimal_32 Decimal_32::/*Is not a friend function, stays in scope*/operator-() const {
 	Decimal_32 ret = *this;
-	ret.fraction_[0] = ((ret.fraction_[0] ^ B11111111) & B11110000) | ret.fraction_[0]; //clear leading sign half-byte
+	ret.mantissa_[0] = ((ret.mantissa_[0] ^ B11111111) & B11110000) | ret.mantissa_[0]; //clear leading sign half-byte
 	return ret;
 }

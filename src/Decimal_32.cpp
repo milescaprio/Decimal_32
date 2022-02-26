@@ -328,31 +328,13 @@ Decimal_32 operator*(Decimal_32 a, Decimal_32 b)
 	utiny spacediff = diff(bilspace,smlspace); //we cant use biggerexp and smallerexp to decide diff because this is based on space not exponent
 	utiny expdiff = biggerexp.exponent_ - smallerexp.exponent_; //dont use diff macro because we have saved comparison
 	//c.exponent_ = a.exponent_ + b.exponent_;
-	int outputdigcount = ((biggerexp.exponent_ + (biggerexp.DIGITS_ - bilspace)) - (smallerexp.exponent_)); //gotta account for possible different exponents
-	/*for (int i = alspace; i < a.DIGITS_; i++) {
-		utiny arffi = a.rff(i);
-		if (arffi != a.SQRT10_[i]) {
-			if (arffi > a.SQRT10_[i]) {
-				outputdigcount += 1;
-			}
-			break;
-		}
-	}
-	for (int i = blspace; i < b.DIGITS_; i++) {
-		utiny brffi = b.rff(i);
-		if (brffi != b.SQRT10_[i]) {
-			if (brffi > b.SQRT10_[i]) {
-				outputdigcount += 1;
-			}
-			break;
-		}
-	}*/ //this doesn't work at all it just checks if the numbers are both less than the sqrt of 10 and I don't think THAT even works
+	int outputdigcount = ((biggerexp.DIGITS_ - bilspace) + (smallerexp.DIGITS_ - smlspace)); //gotta account for possible different exponents
 	for (int i = bilspace; i < biggerexp.DIGITS_; i++) {
 		utiny currentbiggerexpdig = biggerexp.rff(i); //TO DO profile here also  
 		utiny currentsmallerexpdig = smallerexp.rff(i - spacediff);
 		if (currentbiggerexpdig * currentsmallerexpdig != 9) {
-			if (currentbiggerexpdig > currentsmallerexpdig) {
-				outputdigcount++;
+			if (currentbiggerexpdig * currentsmallerexpdig < 9) {
+				outputdigcount--;
 			}
 			break;
 		}

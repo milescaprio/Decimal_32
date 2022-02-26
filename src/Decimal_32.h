@@ -45,7 +45,6 @@ private:
 public:
 	static const int DIGITS_ = 61; //Max digits that Decimal_32 can store. Just good to own this constant if need to change later //these are public for usage, but are constant
 	static const int DIGITBYTES_ = 31;
-	static constexpr const int SQRT10_[] = {3,1,6,2,2,7,7,6,6,0,1,6,8,3,7,9,3,3,1,9,9,8,8,9,3,5,4,4,4,3,2,7,1,8,5,3,3,7,1,9,5,5,5,1,3,9,3,2,5,2,1,6,8,2,6,8,5,7,5,0,4,8,5,2};
 	~Decimal_32();
 	Decimal_32();
 	Decimal_32(float d, int digits);

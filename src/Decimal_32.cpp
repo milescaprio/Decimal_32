@@ -36,7 +36,7 @@ void Decimal_32::pos_subtract(Decimal_32 a, Decimal_32 b) {
 	for (int i = DIGITS_ - 1; i >= 0; i--) {
 		utiny a_currentDigit = a.rfm(i);
 		utiny b_currentDigit = b.rfm(i);
-		utiny c_currentDigit = a_currentDigit - b_currentDigit - borrow;
+		int c_currentDigit = a_currentDigit - b_currentDigit - borrow; //has to be in for negatives. Will cast to utiny on pass
 		if (c_currentDigit < 0/*underflow for subtracting, have to borrow*/) {
 			borrow = 1;
 			c_currentDigit += 10;
@@ -58,7 +58,7 @@ Decimal_32::Decimal_32() {
 	for (int i = 0; i < 31; i++) {
 		mantissa_[i] = B00000000;
 	}
-	exponent_ = 158;
+	exponent_ = NORMALEXP_;
 }
 
 Decimal_32::Decimal_32(float d, int digits) {
@@ -69,7 +69,7 @@ Decimal_32::Decimal_32(double d, int digits) {
 	std::cout << "I will implement this function later\n";
 }
 
-Decimal_32::Decimal_32(std::initializer_list<utiny> mantissa, utiny exponent, bool signd) {
+Decimal_32::Decimal_32(std::initializer_list<utiny> mantissa, exp_type exponent, bool signd) {
 	exponent_ = exponent;
 	for (int i = 0; i < mantissa.size(); i++) {
 		wtm(i + DIGITS_ - mantissa.size(), mantissa.begin()[i]);
@@ -90,9 +90,37 @@ Decimal_32::Decimal_32(const Decimal_32& d) {
 	exponent_ = d.exponent_;
 }
 
+Decimal_32::Decimal_32(const std::string& s) {
+	bool hasMinus = false;
+	size_t size = s.size();
+	size_t pointLoc = size - 1;
+	int j = DIGITS_ - 1;
+	for (int i = size - 1; i >= 0 && j >= 0; i--) {
+		if (!i && s[i] == '-') { 
+			hasMinus = true;
+			continue;
+		}
+		if (s[i] == '.') {
+			if (pointLoc != size - 1) {
+				throw std::string("Too Many Decimal Points in String");
+			}
+			pointLoc = j;
+			continue;
+		}
+		wtm(j, s[i] - '0');
+		j--;
+	}
+	j++;
+	while (j--) {
+		wtm(j, 0); //TO DO optimize inserting many zeros by doing entire bytes at a time
+	}
+	wtm(-1, hasMinus); //-1 gets the sign
+	exponent_ = NORMALEXP_ - (DIGITS_ - 1) + pointLoc;
+}
+
 void Decimal_32::display(void) const {
 	auto digitscache = digits();
-	int dplocation = (int)exponent_ - 158 + digitscache; 
+	int dplocation = (int)exponent_ - NORMALEXP_ + digitscache; 
 	int dpiterlocation = DIGITS_ + dplocation - digitscache; 
 	if (isSigned()) {
 		std::cout << '-';
@@ -185,7 +213,7 @@ void Decimal_32::rshift() {
 	exponent_ += space;
 }
 
-void Decimal_32::lshift(utiny shift) {
+void Decimal_32::lshift(exp_type shift) {
 	if (!shift) return;
 	for (int i = shift; i < DIGITS_; i++) {
 		wtm(i - shift, rfm(i));
@@ -193,7 +221,7 @@ void Decimal_32::lshift(utiny shift) {
 	exponent_ -= shift; // TO DO consider what to do when mantissa goes out of range, also rshift
 }
 
-void Decimal_32::rshift(utiny shift) {
+void Decimal_32::rshift(exp_type shift) {
 	if (!shift) return;
 	for (int i = DIGITS_ - 1; i >= shift; i--) {
 		wtm(i, rfm(i) - shift);
@@ -201,7 +229,7 @@ void Decimal_32::rshift(utiny shift) {
 	exponent_ += shift;
 }
 
-utiny Decimal_32::lspace() {
+exp_type Decimal_32::lspace() {
 	int space = 0;
 	for (int i = 0; i < /*a.*/DIGITS_; i++) {
 		if (!rfm(i)) {
@@ -214,7 +242,7 @@ utiny Decimal_32::lspace() {
 	return space;
 }
 
-utiny Decimal_32::rspace() {
+exp_type Decimal_32::rspace() {
 	int space = 0;
 	for (int i = DIGITS_ - 1; i >= 0; i--) {
 		if (!rfm(i)) {
@@ -293,13 +321,17 @@ Decimal_32 operator-(Decimal_32 a, Decimal_32 b) {
 		c.negate();
 		return c; 
 	}
-
+	if (b > a) { //wont infinite loop because these get swapped, but -- TO DO: AVOID COMPARISON TWICE (passed flag, seperate function, template, in this function?
+		c.pos_subtract(b, a);
+		c.negate();
+		return c;
+	}
 	utiny borrow = 0;
 
 	for (int i = c.DIGITS_ - 1; i >= 0; i--) {
 		utiny a_currentDigit = a.rfm(i);
 		utiny b_currentDigit = b.rfm(i);
-		utiny c_currentDigit = a_currentDigit - b_currentDigit - borrow;
+		int c_currentDigit = a_currentDigit - b_currentDigit - borrow; //has to be in for negatives. Will cast to utiny on pass
 		if (c_currentDigit < 0/*underflow for subtracting, have to borrow*/) {
 			borrow = 1;
 			c_currentDigit += 10 ;
@@ -315,41 +347,69 @@ Decimal_32 operator-(Decimal_32 a, Decimal_32 b) {
 
 Decimal_32 operator*(Decimal_32 a, Decimal_32 b)
 {
-	Decimal_32 c;
+	Decimal_32 c; //TO DO consider not constructing c to not uselessly write
+	c.mantissa_[0] = (a.isSigned() == b.isSigned()) << 4; // calculate sign. Can overwrite first digit because it's not written yet.
 	a.rshift(); //TO DO figure out more optimal solution
 	b.rshift();
-	utiny alspace = a.lspace();
-	utiny blspace = b.lspace();
+	exp_type alspace = a.lspace();
+	exp_type blspace = b.lspace();
 	bool aisbigger = a.exponent_ > b.exponent_;
 	Decimal_32& biggerexp = aisbigger ? a : b;
 	Decimal_32& smallerexp = aisbigger ? b : a;
-	utiny bilspace = aisbigger ? alspace : blspace;
-	utiny smlspace = aisbigger ? blspace : alspace;
-	utiny bildigs = biggerexp.DIGITS_ - bilspace; // bi l digits (bigger left digits)
-	utiny smldigs = smallerexp.DIGITS_ - smlspace;
-	utiny spacediff = diff(bildigs,smldigs); //we cant use biggerexp and smallerexp to decide diff because this is based on space not exponent
-	utiny expdiff = biggerexp.exponent_ - smallerexp.exponent_; //dont use diff macro because we have saved comparison
-	//c.exponent_ = a.exponent_ + b.exponent_;
-	int outputdigcount = ((bildigs) + (smldigs)); //gotta account for possible different exponents
+	exp_type bilspace = aisbigger ? alspace : blspace;
+	exp_type smlspace = aisbigger ? blspace : alspace;
+	exp_type bildigs = biggerexp.DIGITS_ - bilspace; // bi l digits (bigger left digits)
+	exp_type smldigs = smallerexp.DIGITS_ - smlspace;
+	//exp_type spacediff = diff(bildigs,smldigs); //we cant use biggerexp and smallerexp to decide diff because this is based on space not exponent //delete because not needed?
+	//exp_type expdiff = biggerexp.exponent_ - smallerexp.exponent_; //dont use diff macro because we have saved comparison
+	int outputdigcount = ((int)(bildigs) + (int)(smldigs)); //gotta account for possible different exponents; must be int so within standards it isn't overflowed
 	//TO DO consider way to more accurately figure out if we're going to have the extra digit? 
-	utiny cut = c.DIGITS_ < outputdigcount ? outputdigcount - c.DIGITS_: 0;
 	utiny carry = 0;
-	for (int i = biggerexp.DIGITS_ - 1; i >= bilspace; i--) {
-		for (int j = smallerexp.DIGITS_ - 1; j >= smlspace; j--) {
-			carry = c.atm(i - biggerexp.DIGITS_ + 1 + j, biggerexp.rfm(i) * smallerexp.rfm(j) + carry); //TO DO consider using wtm on first iteration?
-		}
-		if (carry) {
-			c.wtm(i - biggerexp.DIGITS_ /*+ 1 - 1*/ - smlspace, carry); //we can guarantee to wtm, not atm because we should be adding to new ground.
-			carry = 0;
+	if (c.DIGITS_ < outputdigcount) { //cutting digits version
+		utiny cut = outputdigcount - c.DIGITS_; // TO DO test
+		for (int i = biggerexp.DIGITS_ - 1; i >= bilspace; i--) {
+			for (int j = smallerexp.DIGITS_ - 1; j >= smlspace; j--) {
+				if (i - biggerexp.DIGITS_ + 1 + j + cut <= c.DIGITS_) /* <= because !> */ { //TO DO consider figuring out optimizations to not check every time; only on beginning on for loop resets and until there isn't cut?
+					carry = c.atm(i - biggerexp.DIGITS_ + 1 + j + cut, biggerexp.rfm(i) * smallerexp.rfm(j) + carry); //TO DO consider using wtm on first iteration?
+				}
+			}
+			if (i - biggerexp.DIGITS_ + smlspace + cut <= c.DIGITS_) /* >= because !< */ {
+				if (carry) {
+					c.wtm(i - biggerexp.DIGITS_ /*+ 1 - 1*/ + smlspace + cut, carry); //we can guarantee to wtm, not atm because we should be adding to new ground.
+					carry = 0;
+				}
+			}
 		}
 	}
-
-
-	std::cout << outputdigcount << '\n';
+	else { //standard version
+		for (int i = biggerexp.DIGITS_ - 1; i >= bilspace; i--) {
+			for (int j = smallerexp.DIGITS_ - 1; j >= smlspace; j--) {
+				carry = c.atm(i - biggerexp.DIGITS_ + 1 + j, biggerexp.rfm(i) * smallerexp.rfm(j) + carry); //TO DO consider using wtm on first iteration?
+			}
+			if (carry) {
+				c.wtm(i - biggerexp.DIGITS_ /*+ 1 - 1*/ + smlspace, carry); //we can guarantee to wtm, not atm because we should be adding to new ground.
+				carry = 0;
+			}
+		}
+	}
+	c.exponent_ = biggerexp.exponent_ + smallerexp.exponent_ - c.NORMALEXP_; //TO DO figure out what happens with exponents out of range
 	return c;
-	if (outputdigcount > c.DIGITS_) {
-	//wait look up, still have it wrong
-	}
+}
+
+Decimal_32 operator/(Decimal_32 a, Decimal_32 b) {
+	Decimal_32 c; //TO DO consider not constructing c to not uselessly write
+	c.mantissa_[0] = (a.isSigned() == b.isSigned()) << 4;
+	a.rshift(); //TO DO figure out more optimal solution
+	b.rshift();
+	exp_type alspace = a.lspace();
+	exp_type blspace = b.lspace();
+	bool aisbigger = a.exponent_ > b.exponent_;
+	Decimal_32& biggerexp = aisbigger ? a : b;
+	Decimal_32& smallerexp = aisbigger ? b : a;
+	exp_type bilspace = aisbigger ? alspace : blspace;
+	exp_type smlspace = aisbigger ? blspace : alspace;
+	exp_type bildigs = biggerexp.DIGITS_ - bilspace; // bi l digits (bigger left digits)
+	exp_type smldigs = smallerexp.DIGITS_ - smlspace;
 }
 
 
